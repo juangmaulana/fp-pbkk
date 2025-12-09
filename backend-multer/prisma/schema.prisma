@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  username     String    @id
+  email        String    @unique
+  password     String
+  role         Role      @default(USER)
+  refreshToken String?   // Store the hashed refresh token
+  posts        Post[]
+  comments     Comment[] // Relation to comments
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  content   String
+  imagePath String? // Optional - S3 path to uploaded image
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [username], onDelete: Cascade)
+  replyToId String? // Optional - null if it's not a reply
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Reply relationships
+  replyTo Post?  @relation("PostReplies", fields: [replyToId], references: [id], onDelete: Cascade)
+  replies Post[] @relation("PostReplies")
+
+  @@map("posts")
+}
+
+model Product {
+  id          String    @id @default(uuid())
+  name        String
+  description String
+  category    String
+  price       Float
+  stock       Int       @default(0)
+  imageUrl    String?   // Optional - product image URL
+  images      String?   // JSON array of image URLs
+  isAvailable Boolean   @default(true)
+  popularity  Int       @default(0) // For sorting by popularity
+  comments    Comment[] // Relation to comments
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([category])
+  @@index([price])
+  @@index([isAvailable])
+  @@index([popularity])
+  @@map("products")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  text      String
+  imageUrl  String?  // Optional - comment image URL
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [username], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([userId])
+  @@map("comments")
+}
