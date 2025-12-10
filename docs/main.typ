@@ -30,7 +30,7 @@ Server akan berjalan di `http://localhost:3000`.
 
 === c. Frontend Setup
 ```bash
-cd frontend
+cd frontend 
 pnpm install
 pnpm run dev
 ```
@@ -654,6 +654,23 @@ Menggunakan `@Cron` untuk mengirim laporan mingguan setiap Senin jam 9 pagi.
       // 3. Send Email
       await this.emailService.sendWeeklySalesSummary(seller.email, seller.username, { totalRevenue, ... });
     }
+  }
+
+  // Manual Trigger (Testing) (Service)
+  // Memungkinkan trigger manual untuk satu user
+  async triggerWeeklySalesSummaryManually(targetUsername?: string) {
+    await this.sendWeeklySalesSummary(targetUsername);
+  }
+```
+
+**Controller (Manual Trigger):**
+Berguna untuk testing, memungkinkan seller mentrigger laporan mereka sendiri saat itu juga.
+```ts
+  @Post('trigger-weekly-summary')
+  @UseGuards(JwtAuthGuard)
+  async triggerWeeklySummary(@Req() req: any) {
+    await this.emailSchedulerService.triggerWeeklySalesSummaryManually(req.user.username);
+    return { message: 'Weekly sales summary emails are being sent...' };
   }
 ```
 Sistem menggunakan `nodemailer` untuk mengirim email transaksional dan `@nestjs/schedule` untuk laporan mingguan otomatis.

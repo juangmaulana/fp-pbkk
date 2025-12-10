@@ -63,91 +63,28 @@ describe('Image Upload (e2e)', () => {
     await app.close();
   });
 
-  describe('S3 Presigned URL Generation', () => {
-    it('should generate presigned URL with valid authentication', async () => {
-      const requestDto = {
-        fileExtension: 'jpg',
-        contentType: 'image/jpeg',
-      };
-
-      const response = await request(app.getHttpServer())
-        .post('/s3/presigned-url')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send(requestDto)
-        .expect(201);
-
-      expect(response.body).toHaveProperty('uploadUrl');
-      expect(response.body).toHaveProperty('imagePath');
-      expect(typeof response.body.uploadUrl).toBe('string');
-      expect(typeof response.body.imagePath).toBe('string');
-      expect(response.body.uploadUrl).toContain('X-Amz-Algorithm');
-      expect(response.body.uploadUrl).toContain('X-Amz-Credential');
-      expect(response.body.imagePath).toMatch(/^posts\/.*\.jpg$/);
-    });
-
-    it('should fail without authentication', async () => {
-      const requestDto = {
-        fileExtension: 'jpg',
-        contentType: 'image/jpeg',
-      };
-
-      await request(app.getHttpServer())
-        .post('/s3/presigned-url')
-        .send(requestDto)
-        .expect(401);
-    });
-
-    it('should fail with invalid data', async () => {
-      await request(app.getHttpServer())
-        .post('/s3/presigned-url')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({})
-        .expect(400);
-    });
-
-    it('should accept different image file extensions', async () => {
-      const extensions = ['jpg', 'png', 'gif', 'webp'];
-
-      for (const ext of extensions) {
-        const response = await request(app.getHttpServer())
-          .post('/s3/presigned-url')
-          .set('Authorization', `Bearer ${authToken}`)
-          .send({
-            fileExtension: ext,
-            contentType: `image/${ext}`,
-          })
-          .expect(201);
-
-        expect(response.body.imagePath).toMatch(
-          new RegExp(`^posts/.*\\.${ext}$`),
-        );
-      }
-    });
-  });
-
   describe('Posts with Image Upload', () => {
-    let presignedResponse: {
-      uploadUrl: string;
-      imagePath: string;
-    };
+    let uploadedImageUrl: string;
 
     beforeEach(async () => {
-      // Get presigned URL for image upload
+      // Upload image for tests
+      const fileContent = Buffer.from('test image content');
       const response = await request(app.getHttpServer())
-        .post('/s3/presigned-url')
+        .post('/upload/image')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          fileExtension: 'jpg',
+        .attach('file', fileContent, {
+          filename: 'test-image.jpg',
           contentType: 'image/jpeg',
-        });
+        })
+        .expect(201);
 
-      presignedResponse = response.body;
+      uploadedImageUrl = response.body.url;
     });
 
     it('should create a post with imagePath', async () => {
       const createPostDto = {
         content: 'Post with image',
-        imagePath: presignedResponse.imagePath,
+        imagePath: uploadedImageUrl,
       };
 
       const response = await request(app.getHttpServer())
@@ -157,10 +94,7 @@ describe('Image Upload (e2e)', () => {
         .expect(201);
 
       expect(response.body).toHaveProperty('content', 'Post with image');
-      expect(response.body).toHaveProperty(
-        'imagePath',
-        presignedResponse.imagePath,
-      );
+      expect(response.body).toHaveProperty('imagePath', uploadedImageUrl);
       expect(response.body).toHaveProperty('author');
       expect(response.body.author).toHaveProperty('username', testUsername);
       expect(response.body).toHaveProperty('id');
@@ -188,7 +122,7 @@ describe('Image Upload (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           content: 'Post with image',
-          imagePath: presignedResponse.imagePath,
+          imagePath: uploadedImageUrl,
         });
 
       // Get all posts
@@ -199,7 +133,7 @@ describe('Image Upload (e2e)', () => {
       expect(Array.isArray(response.body)).toBe(true);
       expect(response.body.length).toBe(1);
       expect(response.body[0]).toHaveProperty('imagePath');
-      expect(response.body[0].imagePath).toBe(presignedResponse.imagePath);
+      expect(response.body[0].imagePath).toBe(uploadedImageUrl);
     });
 
     it('should retrieve post with imagePath by id', async () => {
@@ -209,7 +143,7 @@ describe('Image Upload (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           content: 'Post with image',
-          imagePath: presignedResponse.imagePath,
+          imagePath: uploadedImageUrl,
         });
 
       const postId = createResponse.body.id;
@@ -221,7 +155,7 @@ describe('Image Upload (e2e)', () => {
 
       expect(response.body).toHaveProperty('id', postId);
       expect(response.body).toHaveProperty('imagePath');
-      expect(response.body.imagePath).toBe(presignedResponse.imagePath);
+      expect(response.body.imagePath).toBe(uploadedImageUrl);
     });
 
     it('should validate imagePath format', async () => {
@@ -236,32 +170,27 @@ describe('Image Upload (e2e)', () => {
         .send(createPostDto)
         .expect(201);
 
-      // Even invalid paths are accepted as strings (validation could be added)
       expect(response.body).toHaveProperty('imagePath', 'not-a-valid-path');
     });
   });
 
   describe('Image Upload Integration Flow', () => {
     it('should complete full image upload flow', async () => {
-      // Step 1: Get presigned URL
-      const presignedResponse = await request(app.getHttpServer())
-        .post('/s3/presigned-url')
+      // Step 1: Upload image
+      const fileContent = Buffer.from('test image content');
+      const uploadResponse = await request(app.getHttpServer())
+        .post('/upload/image')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          fileExtension: 'png',
+        .attach('file', fileContent, {
+          filename: 'flow-image.png',
           contentType: 'image/png',
         })
         .expect(201);
 
-      expect(presignedResponse.body).toHaveProperty('uploadUrl');
-      expect(presignedResponse.body).toHaveProperty('imagePath');
+      expect(uploadResponse.body).toHaveProperty('url');
+      const imagePath = uploadResponse.body.url;
 
-      const { uploadUrl, imagePath } = presignedResponse.body;
-
-      // Step 2: Simulate S3 upload (in real scenario, client uploads to uploadUrl)
-      // Note: In e2e test, we skip actual S3 upload as it requires external service
-
-      // Step 3: Create post with imagePath
+      // Step 2: Create post with imagePath
       const createPostResponse = await request(app.getHttpServer())
         .post('/posts')
         .set('Authorization', `Bearer ${authToken}`)
@@ -277,7 +206,7 @@ describe('Image Upload (e2e)', () => {
         'Post with uploaded image',
       );
 
-      // Step 4: Retrieve post and verify imagePath
+      // Step 3: Retrieve post and verify imagePath
       const postId = createPostResponse.body.id;
       const getPostResponse = await request(app.getHttpServer())
         .get(`/posts/${postId}`)
@@ -285,7 +214,7 @@ describe('Image Upload (e2e)', () => {
 
       expect(getPostResponse.body).toHaveProperty('imagePath', imagePath);
 
-      // Step 5: Verify in posts list
+      // Step 4: Verify in posts list
       const getPostsResponse = await request(app.getHttpServer())
         .get('/posts')
         .expect(200);
@@ -306,17 +235,23 @@ describe('Image Upload (e2e)', () => {
       ];
 
       for (const format of formats) {
-        // Get presigned URL
-        const presignedResponse = await request(app.getHttpServer())
-          .post('/s3/presigned-url')
+        // Upload image using Multer (local upload)
+        // We'll mock the file upload here
+        const filePath = `test/fixtures/image.${format.extension}`;
+
+        // Ensure fixture exists or create mock buffer
+        const fileContent = Buffer.from('test image content');
+
+        const uploadResponse = await request(app.getHttpServer())
+          .post('/upload/image')
           .set('Authorization', `Bearer ${authToken}`)
-          .send({
-            fileExtension: format.extension,
-            contentType: format.contentType,
+          .attach('file', fileContent, {
+            filename: `test-image.${format.extension}`,
+            contentType: format.contentType
           })
           .expect(201);
 
-        const { imagePath } = presignedResponse.body;
+        const { url } = uploadResponse.body;
 
         // Create post with this image
         const postResponse = await request(app.getHttpServer())
@@ -324,12 +259,12 @@ describe('Image Upload (e2e)', () => {
           .set('Authorization', `Bearer ${authToken}`)
           .send({
             content: `Post with ${format.extension} image`,
-            imagePath: imagePath,
+            imagePath: url,
           })
           .expect(201);
 
         expect(postResponse.body.imagePath).toMatch(
-          new RegExp(`^posts/.*\\.${format.extension}$`),
+          new RegExp(`^/uploads/file-.*\\.${format.extension}$`),
         );
       }
     });
