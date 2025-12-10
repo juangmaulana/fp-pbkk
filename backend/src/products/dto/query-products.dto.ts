@@ -51,6 +51,10 @@ export class QueryProductsDto {
   @IsBoolean()
   isAvailable?: boolean;
 
+  @IsOptional()
+  @IsString()
+  sellerId?: string;
+
   // Sort
   @IsOptional()
   @IsEnum(SortBy)

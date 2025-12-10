@@ -16,6 +16,15 @@ datasource db {
 enum Role {
   USER
   ADMIN
+  SELLER
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
 }
 
 model User {
@@ -26,6 +35,9 @@ model User {
   refreshToken String?   // Store the hashed refresh token
   posts        Post[]
   comments     Comment[] // Relation to comments
+  products     Product[] // Products created by seller
+  carts        Cart[]    // User's shopping carts
+  orders       Order[]   // User's orders
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -50,24 +62,31 @@ model Post {
 }
 
 model Product {
-  id          String    @id @default(uuid())
+  id          String      @id @default(uuid())
+  sku         String      @unique @default(uuid()) // Auto-generated SKU
   name        String
   description String
   category    String
   price       Float
-  stock       Int       @default(0)
-  imageUrl    String?   // Optional - product image URL
-  images      String?   // JSON array of image URLs
-  isAvailable Boolean   @default(true)
-  popularity  Int       @default(0) // For sorting by popularity
-  comments    Comment[] // Relation to comments
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  stock       Int         @default(0)
+  imageUrl    String?     // Main product image URL (kept for backward compatibility)
+  images      String?     // JSON array of multiple image URLs
+  isAvailable Boolean     @default(true)
+  popularity  Int         @default(0) // For sorting by popularity
+  sellerId    String      @default("admin") // Product owner (seller)
+  seller      User        @relation(fields: [sellerId], references: [username], onDelete: Cascade)
+  comments    Comment[]   // Relation to comments
+  cartItems   CartItem[]  // Products in carts
+  orderItems  OrderItem[] // Products in orders
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   @@index([category])
   @@index([price])
   @@index([isAvailable])
   @@index([popularity])
+  @@index([sellerId])
+  @@index([sku])
   @@map("products")
 }
 
@@ -85,4 +104,67 @@ model Comment {
   @@index([productId])
   @@index([userId])
   @@map("comments")
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [username], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([userId])
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId]) // Prevent duplicate products in same cart
+  @@index([cartId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique // Human-readable order number
+  userId          String
+  user            User        @relation(fields: [userId], references: [username], onDelete: Cascade)
+  items           OrderItem[]
+  status          OrderStatus @default(PENDING)
+  shippingAddress String
+  totalAmount     Float
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderNumber])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  quantity  Int
+  price     Float    // Price at time of order
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
 }

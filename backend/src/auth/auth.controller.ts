@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Patch, Request, UseGuards } from '@nestjs/common';
 import { handlePrismaError } from '../common/prisma-error.handler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -45,6 +45,19 @@ export class AuthController {
       return await this.authService.logout(req.user.username);
     } catch (error) {
       handlePrismaError(error, 'logout user');
+    }
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('update-role')
+  async updateRole(
+    @Request() req: { user: JwtPayloadDto },
+    @Body() body: { role: 'USER' | 'SELLER' },
+  ) {
+    try {
+      return await this.authService.updateRole(req.user.username, body.role);
+    } catch (error) {
+      handlePrismaError(error, 'update user role');
     }
   }
 }

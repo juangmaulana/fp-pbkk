@@ -1,9 +1,26 @@
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting to seed products...');
+  console.log('Starting to seed database...');
+
+  // Create a seller user first
+  const hashedPassword = await bcrypt.hash('password123', 10);
+  
+  const seller = await prisma.user.upsert({
+    where: { username: 'seller1' },
+    update: {},
+    create: {
+      username: 'seller1',
+      email: 'seller1@example.com',
+      password: hashedPassword,
+      role: 'SELLER',
+    },
+  });
+
+  console.log('✅ Created seller user:', seller.username);
 
   const products = [
     {
@@ -15,6 +32,7 @@ async function main() {
       imageUrl: 'https://placehold.co/400x300/0066cc/ffffff?text=Dell+XPS+13',
       isAvailable: true,
       popularity: 250,
+      sellerId: seller.username,
     },
     {
       name: 'iPhone 14 Pro',
@@ -25,6 +43,7 @@ async function main() {
       imageUrl: 'https://placehold.co/400x300/000000/ffffff?text=iPhone+14+Pro',
       isAvailable: true,
       popularity: 520,
+      sellerId: seller.username,
     },
     {
       name: 'Nike Air Max 270',
@@ -35,6 +54,7 @@ async function main() {
       imageUrl: 'https://placehold.co/400x300/ff6600/ffffff?text=Nike+Air+Max',
       isAvailable: true,
       popularity: 180,
+      sellerId: seller.username,
     },
     {
       name: 'Samsung 55" 4K Smart TV',
@@ -45,6 +65,7 @@ async function main() {
       imageUrl: 'https://placehold.co/400x300/003366/ffffff?text=Samsung+TV',
       isAvailable: true,
       popularity: 145,
+      sellerId: seller.username,
     },
     {
       name: 'Adidas Originals Hoodie',
@@ -55,6 +76,7 @@ async function main() {
       imageUrl: 'https://placehold.co/400x300/000000/ffffff?text=Adidas+Hoodie',
       isAvailable: true,
       popularity: 320,
+      sellerId: seller.username,
     },
     {
       name: 'Sony WH-1000XM5 Headphones',
@@ -65,6 +87,7 @@ async function main() {
       imageUrl: 'https://placehold.co/400x300/333333/ffffff?text=Sony+Headphones',
       isAvailable: true,
       popularity: 410,
+      sellerId: seller.username,
     },
     {
       name: 'Levi\'s 501 Original Jeans',
@@ -75,6 +98,7 @@ async function main() {
       imageUrl: 'https://placehold.co/400x300/003d99/ffffff?text=Levis+Jeans',
       isAvailable: true,
       popularity: 275,
+      sellerId: seller.username,
     },
     {
       name: 'MacBook Pro 14"',
@@ -218,13 +242,19 @@ async function main() {
     },
   ];
 
-  for (const product of products) {
+  // Add sellerId to all products that don't have it
+  const productsWithSeller = products.map(product => ({
+    ...product,
+    sellerId: product.sellerId || seller.username,
+  }));
+
+  for (const product of productsWithSeller) {
     await prisma.product.create({
       data: product,
     });
   }
 
-  console.log(`✅ Successfully seeded ${products.length} products!`);
+  console.log(`✅ Successfully seeded ${productsWithSeller.length} products!`);
 }
 
 main()

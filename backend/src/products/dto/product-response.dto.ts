@@ -1,5 +1,6 @@
 export class ProductResponseDto {
   id: string;
+  sku: string;
   name: string;
   description: string;
   category: string;
@@ -9,6 +10,7 @@ export class ProductResponseDto {
   images?: string[];
   isAvailable: boolean;
   popularity: number;
+  sellerId: string;
   createdAt: Date;
   updatedAt: Date;
 }

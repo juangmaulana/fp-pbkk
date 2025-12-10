@@ -1,4 +1,5 @@
 import { IsString, IsNumber, IsBoolean, IsOptional, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 export class CreateProductDto {
   @IsString()
@@ -10,10 +11,18 @@ export class CreateProductDto {
   @IsString()
   category: string;
 
+  @Transform(({ value }) => {
+    const num = Number(value);
+    return isNaN(num) ? value : num;
+  })
   @IsNumber()
   @Min(0)
   price: number;
 
+  @Transform(({ value }) => {
+    const num = Number(value);
+    return isNaN(num) ? value : num;
+  })
   @IsNumber()
   @Min(0)
   stock: number;
@@ -31,6 +40,11 @@ export class CreateProductDto {
   isAvailable?: boolean;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    const num = Number(value);
+    return isNaN(num) ? value : num;
+  })
   @IsNumber()
   @Min(0)
   popularity?: number;

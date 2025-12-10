@@ -27,6 +27,13 @@ describe('Image Upload (e2e)', () => {
   });
 
   beforeEach(async () => {
+    // Cleanup database respecting foreign keys
+    await prismaService.orderItem.deleteMany();
+    await prismaService.order.deleteMany();
+    await prismaService.cartItem.deleteMany();
+    await prismaService.cart.deleteMany();
+    await prismaService.comment.deleteMany();
+    await prismaService.product.deleteMany();
     await prismaService.post.deleteMany();
     await prismaService.user.deleteMany();
     testUsername = `testuser_${Date.now()}`;
@@ -44,6 +51,13 @@ describe('Image Upload (e2e)', () => {
   });
 
   afterAll(async () => {
+    // Cleanup database respecting foreign keys
+    await prismaService.orderItem.deleteMany();
+    await prismaService.order.deleteMany();
+    await prismaService.cartItem.deleteMany();
+    await prismaService.cart.deleteMany();
+    await prismaService.comment.deleteMany();
+    await prismaService.product.deleteMany();
     await prismaService.post.deleteMany();
     await prismaService.user.deleteMany();
     await app.close();

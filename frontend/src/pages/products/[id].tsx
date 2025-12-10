@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 
 interface Product {
   id: string;
@@ -32,11 +33,14 @@ export default function ProductDetail() {
   const router = useRouter();
   const { id } = router.query;
   const { user, getAuthHeader } = useAuth();
+  const { addToCart } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [addingToCart, setAddingToCart] = useState(false);
 
   // Comment form state
   const [commentText, setCommentText] = useState('');
@@ -100,6 +104,30 @@ export default function ProductDetail() {
       setComments(data);
     } catch (err) {
       console.error('Failed to fetch comments:', err);
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!user) {
+      alert('Please login to add items to cart');
+      router.push('/auth/login');
+      return;
+    }
+
+    if (quantity > product!.stock) {
+      alert(`Only ${product!.stock} units available`);
+      return;
+    }
+
+    setAddingToCart(true);
+    try {
+      await addToCart(product!.id, quantity);
+      alert('Product added to cart successfully!');
+      setQuantity(1); // Reset quantity
+    } catch (error: any) {
+      alert(error.message || 'Failed to add product to cart');
+    } finally {
+      setAddingToCart(false);
     }
   };
 
@@ -388,11 +416,61 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card mb-3">
             <div className="card-body">
               <h5 className="card-title">Description</h5>
               <hr />
               <p className="card-text">{product.description}</p>
+            </div>
+          </div>
+
+          {/* Add to Cart Section */}
+          <div className="card">
+            <div className="card-body">
+              <h5 className="card-title">Add to Cart</h5>
+              <hr />
+              <div className="row g-3">
+                <div className="col-md-4">
+                  <label className="form-label fw-bold">Quantity</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    min="1"
+                    max={product.stock}
+                    disabled={!product.isAvailable || product.stock === 0}
+                  />
+                  <small className="text-muted">Max: {product.stock}</small>
+                </div>
+                <div className="col-md-8 d-flex align-items-end">
+                  <button
+                    className="btn btn-primary btn-lg w-100"
+                    onClick={handleAddToCart}
+                    disabled={!product.isAvailable || product.stock === 0 || addingToCart || quantity > product.stock}
+                  >
+                    {addingToCart ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        Adding...
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" className="bi bi-cart-plus me-2" viewBox="0 0 16 16">
+                          <path d="M9 5.5a.5.5 0 0 0-1 0V7H6.5a.5.5 0 0 0 0 1H8v1.5a.5.5 0 0 0 1 0V8h1.5a.5.5 0 0 0 0-1H9z"/>
+                          <path d="M.5 1a.5.5 0 0 0 0 1h1.11l.401 1.607 1.498 7.985A.5.5 0 0 0 4 12h1a2 2 0 1 0 0 4 2 2 0 0 0 0-4h7a2 2 0 1 0 0 4 2 2 0 0 0 0-4h1a.5.5 0 0 0 .491-.408l1.5-8A.5.5 0 0 0 14.5 3H2.89l-.405-1.621A.5.5 0 0 0 2 1zm3.915 10L3.102 4h10.796l-1.313 7zM6 14a1 1 0 1 1-2 0 1 1 0 0 1 2 0m7 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/>
+                        </svg>
+                        Add to Cart
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+              {!product.isAvailable && (
+                <div className="alert alert-warning mt-3 mb-0">
+                  <strong>Out of Stock!</strong> This product is currently unavailable.
+                </div>
+              )}
             </div>
           </div>
         </div>

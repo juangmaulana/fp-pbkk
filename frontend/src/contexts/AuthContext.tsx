@@ -14,7 +14,9 @@ interface AuthContextType {
   logout: () => void;
   loading: boolean;
   isAdmin: () => boolean;
+  isSeller: () => boolean;
   getAuthHeader: () => Record<string, string>;
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -102,8 +104,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return user?.role === 'ADMIN';
   };
 
+  const isSeller = () => {
+    return user?.role === 'SELLER' || user?.role === 'ADMIN';
+  };
+
   const getAuthHeader = () => {
     return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
   };
 
   const value = {
@@ -114,7 +124,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logout,
     loading,
     isAdmin,
+    isSeller,
     getAuthHeader,
+    updateUser,
   };
 
   return (

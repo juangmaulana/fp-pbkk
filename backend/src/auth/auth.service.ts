@@ -142,4 +142,34 @@ export class AuthService {
       message: 'Logged out successfully',
     };
   }
+
+  async updateRole(username: string, role: 'USER' | 'SELLER') {
+    // Prevent admins from changing their role
+    const user = await this.prisma.user.findUnique({
+      where: { username },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (user.role === 'ADMIN') {
+      throw new UnauthorizedException('Admin role cannot be changed');
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { username },
+      data: { role },
+      select: {
+        username: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    return {
+      message: `Role updated to ${role} successfully`,
+      user: updatedUser,
+    };
+  }
 }
