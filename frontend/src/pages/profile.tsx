@@ -13,7 +13,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (authLoading) return;
-    
+
     if (!user) {
       router.push('/auth/login');
       return;
@@ -44,12 +44,12 @@ export default function Profile() {
       }
 
       const data = await response.json();
-      
+
       // Update user in context and localStorage
       const updatedUser = { ...user, role: newRole };
       localStorage.setItem('user', JSON.stringify(updatedUser));
       updateUser(updatedUser);
-      
+
       setCurrentRole(newRole);
       setMessage(`Successfully switched to ${newRole === 'USER' ? 'Buyer' : 'Seller'} mode!`);
 
@@ -79,18 +79,19 @@ export default function Profile() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to trigger weekly summary');
+        const errorText = await response.text();
+        throw new Error(`Failed to trigger weekly summary: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
       setEmailMessage(data.message);
-      
+
       setTimeout(() => {
         setEmailMessage('');
       }, 5000);
     } catch (error: any) {
       console.error('Failed to trigger weekly summary:', error);
-      setEmailMessage('Error: ' + (error.message || 'Failed to trigger weekly summary'));
+      setEmailMessage(error.message || 'Failed to trigger weekly summary');
     } finally {
       setEmailLoading(false);
     }
@@ -124,12 +125,11 @@ export default function Profile() {
                 <div className="row">
                   <div className="col-4 fw-bold">Current Role:</div>
                   <div className="col-8">
-                    <span className={`badge ${
-                      currentRole === 'SELLER' ? 'bg-primary' : 
-                      currentRole === 'ADMIN' ? 'bg-danger' : 'bg-success'
-                    }`}>
-                      {currentRole === 'SELLER' ? 'Seller' : 
-                       currentRole === 'ADMIN' ? 'Admin' : 'Buyer'}
+                    <span className={`badge ${currentRole === 'SELLER' ? 'bg-primary' :
+                        currentRole === 'ADMIN' ? 'bg-danger' : 'bg-success'
+                      }`}>
+                      {currentRole === 'SELLER' ? 'Seller' :
+                        currentRole === 'ADMIN' ? 'Admin' : 'Buyer'}
                     </span>
                   </div>
                 </div>
@@ -142,7 +142,7 @@ export default function Profile() {
                     <i className="bi bi-arrow-left-right me-2"></i>
                     Switch Account Type
                   </h5>
-                  
+
                   {message && (
                     <div className="alert alert-success" role="alert">
                       <i className="bi bi-check-circle me-2"></i>
@@ -228,7 +228,7 @@ export default function Profile() {
 
                   <div className="alert alert-info mt-3" role="alert">
                     <i className="bi bi-info-circle me-2"></i>
-                    <strong>Note:</strong> You can switch between Buyer and Seller modes anytime. 
+                    <strong>Note:</strong> You can switch between Buyer and Seller modes anytime.
                     Your data (products, orders, cart) will be preserved.
                   </div>
                 </div>
@@ -252,7 +252,7 @@ export default function Profile() {
                     <p className="text-muted mb-3">
                       Test the weekly sales summary email notification. This will send you an email with your sales data from the last 7 days.
                     </p>
-                    
+
                     {emailMessage && (
                       <div className={`alert ${emailMessage.startsWith('Error') ? 'alert-danger' : 'alert-success'} mb-3`}>
                         {emailMessage}
@@ -280,7 +280,7 @@ export default function Profile() {
                     <div className="alert alert-info mt-3 mb-0" role="alert">
                       <i className="bi bi-info-circle me-2"></i>
                       <small>
-                        <strong>Note:</strong> In production, this email is automatically sent every Monday at 9 AM. 
+                        <strong>Note:</strong> In production, this email is automatically sent every Monday at 9 AM.
                         Currently, emails are logged to the console (check backend terminal).
                       </small>
                     </div>
